@@ -1,0 +1,54 @@
+name: Deploy to Cloud Run
+
+on:
+  push:
+    branches:
+      - dev-automation  # Change this to the branch you want to deploy from
+
+env:
+  DEPLOY_REGION: ${{ secrets.DEPLOY_REGION }}
+  PROJECT_ID: ${{ secrets.PROJECT_ID }}
+  DEPLOY_TYPE: ${{ secrets.DEPLOY_TYPE }}
+  SERVICE_NAME: ${{ secrets.SERVICE_NAME }}
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Authenticate with Google Cloud
+      uses: google-github-actions/auth@v1
+      with:
+        credentials_json: ${{ secrets.GCP_CREDENTIALS }}
+
+    - name: Set up Google Cloud SDK
+      uses: google-github-actions/setup-gcloud@v1
+      with:
+        project_id: ${{ secrets.PROJECT_ID }}
+        service_account_key: ${{ secrets.GCP_CREDENTIALS }}
+        export_default_credentials: true
+
+    - name: Configure Docker for GCP
+      run: gcloud auth configure-docker $DEPLOY_REGION-docker.pkg.dev
+
+    - name: Build the container image
+      run: |
+        docker build \
+          -t $DEPLOY_REGION-docker.pkg.dev/$PROJECT_ID/dev/$DEPLOY_TYPE-random-customer-service-image:${{ github.sha }} .
+
+    - name: Push the container image to Container Registry
+      run: |
+        docker push \
+          $DEPLOY_REGION-docker.pkg.dev/$PROJECT_ID/dev/$DEPLOY_TYPE-random-customer-service-image:${{ github.sha }}
+
+    - name: Deploy to Cloud Run
+      run: |
+        gcloud run deploy $SERVICE_NAME \
+          --image $DEPLOY_REGION-docker.pkg.dev/$PROJECT_ID/cleveri/$DEPLOY_TYPE-random-customer-service-image:${{ github.sha }} \
+          --region $DEPLOY_REGION \
+          --platform managed \
+          --min-instances 0 \
+          --allow-unauthenticated
