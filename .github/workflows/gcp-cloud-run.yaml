@@ -47,7 +47,7 @@ jobs:
     - name: Deploy to Cloud Run
       run: |
         gcloud run deploy $SERVICE_NAME \
-          --image $DEPLOY_REGION-docker.pkg.dev/$PROJECT_ID/cleveri/$DEPLOY_TYPE-random-customer-service-image:${{ github.sha }} \
+          --image $DEPLOY_REGION-docker.pkg.dev/$PROJECT_ID/dev/$DEPLOY_TYPE-random-customer-service-image:${{ github.sha }} \
           --region $DEPLOY_REGION \
           --platform managed \
           --min-instances 0 \
