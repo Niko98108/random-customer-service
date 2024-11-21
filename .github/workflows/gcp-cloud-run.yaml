@@ -10,6 +10,7 @@ env:
   PROJECT_ID: ${{ secrets.PROJECT_ID }}
   DEPLOY_TYPE: ${{ secrets.DEPLOY_TYPE }}
   SERVICE_NAME: ${{ secrets.SERVICE_NAME }}
+  REPOSITORY_NAME: ${{ secrets.REPOSITORY_NAME }} # Add the repository name as a secret
 
 jobs:
   build-and-deploy:
@@ -31,23 +32,32 @@ jobs:
         service_account_key: ${{ secrets.GCP_CREDENTIALS }}
         export_default_credentials: true
 
+    - name: Ensure Artifact Registry Exists
+      run: |
+        gcloud artifacts repositories describe $REPOSITORY_NAME \
+          --location=$DEPLOY_REGION || \
+        gcloud artifacts repositories create $REPOSITORY_NAME \
+          --repository-format=docker \
+          --location=$DEPLOY_REGION \
+          --description="Artifact registry for $DEPLOY_TYPE services"
+
     - name: Configure Docker for GCP
       run: gcloud auth configure-docker $DEPLOY_REGION-docker.pkg.dev
 
     - name: Build the container image
       run: |
         docker build \
-          -t $DEPLOY_REGION-docker.pkg.dev/$PROJECT_ID/dev/$DEPLOY_TYPE-random-customer-service-image:${{ github.sha }} .
+          -t $DEPLOY_REGION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY_NAME/$DEPLOY_TYPE-random-customer-service-image:${{ github.sha }} .
 
-    - name: Push the container image to Container Registry
+    - name: Push the container image to Artifact Registry
       run: |
         docker push \
-          $DEPLOY_REGION-docker.pkg.dev/$PROJECT_ID/dev/$DEPLOY_TYPE-random-customer-service-image:${{ github.sha }}
+          $DEPLOY_REGION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY_NAME/$DEPLOY_TYPE-random-customer-service-image:${{ github.sha }}
 
     - name: Deploy to Cloud Run
       run: |
         gcloud run deploy $SERVICE_NAME \
-          --image $DEPLOY_REGION-docker.pkg.dev/$PROJECT_ID/dev/$DEPLOY_TYPE-random-customer-service-image:${{ github.sha }} \
+          --image $DEPLOY_REGION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY_NAME/$DEPLOY_TYPE-random-customer-service-image:${{ github.sha }} \
           --region $DEPLOY_REGION \
           --platform managed \
           --min-instances 0 \
