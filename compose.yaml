@@ -1,0 +1,11 @@
+name: dev-random-customer-service
+version: "1.0.0"
+services:
+  app:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    image: dev-random-customer-service
+    #restart: unless-stopped
+    ports:
+      - "3001:3001"
